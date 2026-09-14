@@ -1,11 +1,11 @@
-.PHONY: setup rebuild run clean
+.PHONY: setup run clean
 
 setup:
 	distrobox assemble create --file ./distrobox.ini
+	chmod +x ./start.sh
 
-rebuild:
+clean:
 	-distrobox rm -f godot-dev
-	distrobox assemble create --file ./distrobox.ini
 
 run:
 	./start.sh
