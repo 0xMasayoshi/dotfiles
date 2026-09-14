@@ -13,27 +13,26 @@ if [ -z "$OPENCODE_SERVER_PASSWORD" ]; then
     export OPENCODE_SERVER_PASSWORD
 fi
 
-# Check if the container is missing tools, and if so, rebuild it automatically
-if ! distrobox enter godot-dev -- command -v gh &>/dev/null; then
-    echo "Container definition changed. Rebuilding godot-dev..."
-    distrobox rm -f godot-dev
-    distrobox assemble create --file ./distrobox.ini
-fi
-
 # 1. Forward into Distrobox if executed from the host
 if [ ! -f "/run/.containerenv" ]; then
     echo "=== Launching inside godot-dev container ==="
     exec distrobox enter godot-dev -- env OPENCODE_SERVER_PASSWORD="$OPENCODE_SERVER_PASSWORD" bash "$(realpath "$0")"
 fi
 
-# 2. Check GitHub Auth Status
+# 2. Sanity Check: Ensure container has required tools
+if ! command -v gh &>/dev/null || ! command -v tmux &>/dev/null; then
+    echo "Error: Required tools (gh/tmux) not found inside container. Run 'make setup' first." >&2
+    exit 1
+fi
+
+# 3. Check GitHub Auth Status
 if ! gh auth status &>/dev/null; then
     echo "=== GitHub CLI not logged in ==="
     echo "Launching web-based SSH authorization..."
     gh auth login -w -p ssh
 fi
 
-# 3. Check Auth Status before backgrounding
+# 4. Check Auth Status before backgrounding
 AUTH_FILE_1="$HOME/.local/share/opencode/auth.json"
 AUTH_FILE_2="$HOME/.config/opencode/auth.json"
 
@@ -43,7 +42,7 @@ if [ ! -f "$AUTH_FILE_1" ] && [ ! -f "$AUTH_FILE_2" ]; then
     opencode auth login || true
 fi
 
-# 4. Inside Container: Launch or report tmux session
+# 5. Inside Container: Launch or report tmux session
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     echo "OpenCode is already running in background session '$SESSION_NAME'."
 else
