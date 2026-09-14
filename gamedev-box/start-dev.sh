@@ -19,7 +19,14 @@ if [ ! -f "/run/.containerenv" ]; then
     exec distrobox enter godot-dev -- env OPENCODE_SERVER_PASSWORD="$OPENCODE_SERVER_PASSWORD" bash "$(realpath "$0")"
 fi
 
-# 2. Check Auth Status before backgrounding
+# 2. Check GitHub Auth Status
+if ! gh auth status &>/dev/null; then
+    echo "=== GitHub CLI not logged in ==="
+    echo "Launching web-based SSH authorization..."
+    gh auth login -w -p ssh
+fi
+
+# 3. Check Auth Status before backgrounding
 AUTH_FILE_1="$HOME/.local/share/opencode/auth.json"
 AUTH_FILE_2="$HOME/.config/opencode/auth.json"
 
@@ -29,7 +36,7 @@ if [ ! -f "$AUTH_FILE_1" ] && [ ! -f "$AUTH_FILE_2" ]; then
     opencode auth login || true
 fi
 
-# 3. Inside Container: Launch or report tmux session
+# 4. Inside Container: Launch or report tmux session
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     echo "OpenCode is already running in background session '$SESSION_NAME'."
 else
