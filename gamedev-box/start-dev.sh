@@ -13,6 +13,13 @@ if [ -z "$OPENCODE_SERVER_PASSWORD" ]; then
     export OPENCODE_SERVER_PASSWORD
 fi
 
+# Check if the container is missing tools, and if so, rebuild it automatically
+if ! distrobox enter godot-dev -- command -v gh &>/dev/null; then
+    echo "Container definition changed. Rebuilding godot-dev..."
+    distrobox rm -f godot-dev
+    distrobox assemble create --file ~/dotfiles/gamedev-box/distrobox.ini
+fi
+
 # 1. Forward into Distrobox if executed from the host
 if [ ! -f "/run/.containerenv" ]; then
     echo "=== Launching inside godot-dev container ==="
