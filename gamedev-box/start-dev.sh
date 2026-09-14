@@ -17,7 +17,7 @@ fi
 if ! distrobox enter godot-dev -- command -v gh &>/dev/null; then
     echo "Container definition changed. Rebuilding godot-dev..."
     distrobox rm -f godot-dev
-    distrobox assemble create --file ~/dotfiles/gamedev-box/distrobox.ini
+    distrobox assemble create --file ./distrobox.ini
 fi
 
 # 1. Forward into Distrobox if executed from the host
