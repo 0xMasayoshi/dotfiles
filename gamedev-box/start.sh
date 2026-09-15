@@ -6,43 +6,53 @@ export OPENCODE_SERVER_PORT="${OPENCODE_SERVER_PORT:-4096}"
 export OPENCODE_SERVER_HOSTNAME="${OPENCODE_SERVER_HOSTNAME:-0.0.0.0}"
 SESSION_NAME="gamedev"
 
-# If password isn't in env, prompt for it
-if [ -z "$OPENCODE_SERVER_PASSWORD" ]; then
-    read -rsp "Enter OpenCode web password: " OPENCODE_SERVER_PASSWORD
-    echo
-    export OPENCODE_SERVER_PASSWORD
-fi
-
-# 1. Forward into Distrobox if executed from the host
+# ========================================================
+# 1. HOST SIDE: Prevent SSH disconnect reaping & forward
+# ========================================================
 if [ ! -f "/run/.containerenv" ]; then
+    # Ensure systemd never reaps background processes on idle disconnect
+    if command -v loginctl &>/dev/null; then
+        loginctl enable-linger "$USER" &>/dev/null || true
+    fi
+
+    # Prompt for password if not set
+    if [ -z "$OPENCODE_SERVER_PASSWORD" ]; then
+        read -rsp "Enter OpenCode web password: " OPENCODE_SERVER_PASSWORD
+        echo
+        export OPENCODE_SERVER_PASSWORD
+    fi
+
     echo "=== Launching inside godot-dev container ==="
     exec distrobox enter godot-dev -- env OPENCODE_SERVER_PASSWORD="$OPENCODE_SERVER_PASSWORD" bash "$(realpath "$0")"
 fi
 
-# 2. Sanity Check: Ensure container has required tools
+# ========================================================
+# 2. CONTAINER SIDE: Runtime execution
+# ========================================================
+
+# Sanity Check
 if ! command -v gh &>/dev/null || ! command -v tmux &>/dev/null; then
     echo "Error: Required tools (gh/tmux) not found inside container. Run 'make setup' first." >&2
     exit 1
 fi
 
-# 3. Check GitHub Auth Status
+# GitHub Auth
 if ! gh auth status &>/dev/null; then
     echo "=== GitHub CLI not logged in ==="
     echo "Launching web-based SSH authorization..."
     gh auth login -w -p ssh
 fi
 
-# 4. Check Auth Status before backgrounding
+# OpenCode Auth Check
 AUTH_FILE_1="$HOME/.local/share/opencode/auth.json"
 AUTH_FILE_2="$HOME/.config/opencode/auth.json"
-
 if [ ! -f "$AUTH_FILE_1" ] && [ ! -f "$AUTH_FILE_2" ]; then
     echo "=== No OpenCode credentials detected ==="
     echo "Launching one-time interactive login..."
     opencode auth login || true
 fi
 
-# 5. Inside Container: Launch or report tmux session
+# Launch or report background tmux session
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     echo "OpenCode is already running in background session '$SESSION_NAME'."
 else
@@ -57,5 +67,5 @@ echo " OpenCode Web is live in the background!"
 echo " URL: http://${IP}:${OPENCODE_SERVER_PORT}"
 echo "----------------------------------------------------"
 echo "Useful commands:"
-echo "  tmux attach -t gamedev        # View live logs"
-echo "  tmux kill-session -t gamedev  # Stop server"
+echo "  TERM=xterm-256color tmux attach -t gamedev"
+echo "  tmux kill-session -t gamedev"
